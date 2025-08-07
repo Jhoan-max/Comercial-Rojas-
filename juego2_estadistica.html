@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Comercial Rojas – App Admin</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.33/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    body{margin:0;font-family:'Segoe UI',sans-serif;background:var(--bg);color:var(--text);transition:background .3s,color .3s;}
+    :root{--bg:#eaf0f6;--text:#333;--card-bg:#fff;--input-bg:#f9f9f9;--button-bg:#0078d7;--border:#ccd;--hover-bg:#f0f8ff;}
+    [data-theme="dark"]{--bg:#222;--text:#e4e4e4;--card-bg:#333;--input-bg:#444;--button-bg:#005fa3;--border:#555;--hover-bg:#3a3a3a;}
+    .hero{background:url('https://img.freepik.com/free-photo/modern-kitchen-appliances-counter_23-2148091814.jpg')center/cover no-repeat;height:200px;color:white;}
+    .hero .overlay{background:rgba(0,0,0,0.6);height:100%;display:flex;align-items:center;justify-content:center;}
+    .hero h1{font-size:2.8rem;text-shadow:2px 2px 5px rgba(0,0,0,0.8);}
+    .container{max-width:1100px;margin:-40px auto 40px;background:var(--card-bg);padding:30px;border-radius:12px;box-shadow:0 0 15px rgba(0,0,0,0.1);}
+    input,button{font-size:1rem;}
+    input{padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);width:100%;margin-bottom:15px;}
+    input::placeholder{color:var(--text);}
+    button{background:var(--button-bg);color:white;border:none;padding:12px 20px;border-radius:6px;cursor:pointer;font-weight:bold;transition:opacity .2s;}
+    button:hover{opacity:0.9;}
+    #cancelEdit{background:#999;}
+    .hidden{display:none!important;}
+    .top-controls{display:flex;gap:10px;align-items:center;margin-bottom:20px;}
+    #buscador{flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:0.95rem;}
+    th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;color:var(--text);}
+    th{background:var(--button-bg);color:white;}
+    tr:hover td{background-color:var(--hover-bg);}
+    .actions button{margin-right:5px;padding:5px 8px;font-size:0.85rem;border-radius:4px;background:#e8e8e8;color:#333;border:1px solid #ccc;}
+    .actions button:hover{background:#d0e7ff;border-color:var(--button-bg);}
+    .chart-container{margin-top:40px;}
+    canvas{max-width:100%;margin-bottom:5px;background:var(--card-bg);}
+    #qrCode{margin-top:20px;}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="overlay"><h1>Bienvenidos a Comercial Rojas</h1></div></header>
+  <div class="container" id="mainContainer" data-theme="">
+    <div id="loginPage">
+      <h2>Login Admin</h2>
+      <input id="user" placeholder="Usuario">
+      <input id="pass" type="password" placeholder="Contraseña">
+      <button id="btnLogin">Ingresar</button>
+      <p id="loginError" style="color:red;display:none;">Credenciales incorrectas</p>
+    </div>
+
+    <div id="adminPage" class="hidden">
+      <div class="top-controls">
+        <input id="buscador" placeholder="🔍 Buscar">
+        <button id="toggleTheme">🌙 Cambiar tema</button>
+        <button id="btnLogout">🔓 Cerrar sesión</button>
+      </div>
+
+      <h2>Configuración Admin</h2>
+      <button id="btnShowCreds">🔐 Cambiar usuario/contraseña</button>
+      <div id="credForm" class="hidden">
+        <input id="newUser" placeholder="Nuevo usuario">
+        <input id="newPass" placeholder="Nueva contraseña">
+        <button id="btnSaveCreds">Guardar credenciales</button>
+      </div>
+
+      <h2>Registro de Usuarios</h2>
+      <form id="registroUsuario">
+        <input name="dni" placeholder="DNI" required>
+        <input name="nombres" placeholder="Nombres" required>
+        <input name="apellidos" placeholder="Apellidos" required>
+        <input name="edad" type="number" placeholder="Edad" required>
+        <input name="telefono" placeholder="Teléfono" required>
+        <input name="direccion" placeholder="Dirección" required>
+        <input name="email" type="email" placeholder="Correo electrónico" required>
+        <input name="producto" placeholder="Producto comprado" required>
+        <input name="numProducto" placeholder="Número de producto" required>
+        <input name="precioFijo" type="number" step="0.01" placeholder="Precio fijo" required>
+        <input name="precioCuotas" type="number" step="0.01" placeholder="Precio en cuotas" required>
+        <button type="submit">Guardar</button>
+        <button type="button" id="cancelEdit" style="display:none;">Cancelar</button>
+      </form>
+
+      <h2>Usuarios Registrados</h2>
+      <button onclick="exportarExcel()">Exportar Excel</button>
+      <button onclick="exportarPDF()">Exportar PDF</button>
+      <table id="tablaUsuarios">
+        <thead>
+          <tr><th>🖼️</th><th>DNI</th><th>Nombres</th><th>Apellidos</th><th>Edad</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>N° Producto</th><th>Precio Fijo</th><th>Cuotas</th><th>Acciones</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="chart-container">
+        <h2>📊 Estadísticas</h2>
+        <canvas id="chartProductos"></canvas>
+        <button onclick="exportChartImage(chartProd,'ventas_producto.png')">Exportar PNG</button>
+        <button onclick="exportChartPDF(chartProd,'ventas_producto.pdf')">Exportar PDF</button>
+        <canvas id="chartCuotas"></canvas>
+        <button onclick="exportChartImage(chartCuotas,'promedio_cuotas.png')">Exportar PNG</button>
+        <button onclick="exportChartPDF(chartCuotas,'promedio_cuotas.pdf')">Exportar PDF</button>
+      </div>
+
+      <h2>📲 Instalar App</h2>
+      <div id="qrCode"></div>
+    </div>
+  </div>
+
+<script>
+  // Credenciales guardadas
+  if(!localStorage.getItem('ADMIN_USER')) localStorage.setItem('ADMIN_USER','admin');
+  if(!localStorage.getItem('ADMIN_PASS')) localStorage.setItem('ADMIN_PASS','rojas123');
+
+  const loginPage = document.getElementById('loginPage'),
+        adminPage = document.getElementById('adminPage'),
+        userInput = document.getElementById('user'), passInput = document.getElementById('pass'),
+        loginError = document.getElementById('loginError'),
+        btnLogin = document.getElementById('btnLogin'),
+        btnLogout = document.getElementById('btnLogout'),
+        btnShowCreds = document.getElementById('btnShowCreds'),
+        credForm = document.getElementById('credForm'),
+        newUser = document.getElementById('newUser'),
+        newPass = document.getElementById('newPass'),
+        btnSaveCreds = document.getElementById('btnSaveCreds'),
+        form = document.getElementById('registroUsuario'),
+        cancelBtn = document.getElementById('cancelEdit'),
+        tbody = document.querySelector('#tablaUsuarios tbody'),
+        buscador = document.getElementById('buscador'),
+        toggle = document.getElementById('toggleTheme'),
+        container = document.getElementById('mainContainer');
+
+  let editIndex = null, theme = localStorage.getItem('theme') || 'light', chartProd, chartCuotas;
+
+  btnLogin.onclick = () => {
+    if(userInput.value === localStorage.getItem('ADMIN_USER') &&
+       passInput.value === localStorage.getItem('ADMIN_PASS')) {
+      loginPage.classList.add('hidden');
+      adminPage.classList.remove('hidden');
+      initAdmin();
+      generarQR();
+    } else loginError.style.display = 'block';
+  };
+  btnLogout.onclick = () => { adminPage.classList.add('hidden'); loginPage.classList.remove('hidden'); };
+
+  btnShowCreds.onclick = () => credForm.classList.toggle('hidden');
+  btnSaveCreds.onclick = () => {
+    if(newUser.value && newPass.value) {
+      localStorage.setItem('ADMIN_USER', newUser.value);
+      localStorage.setItem('ADMIN_PASS', newPass.value);
+      alert('Credenciales actualizadas'); newUser.value=newPass.value=''; credForm.classList.add('hidden');
+    }
+  };
+
+  function initTheme(){
+    container.setAttribute('data-theme', theme==='dark'?'dark':'');
+    toggle.textContent = theme==='dark'?'☀️ Claro':'🌙 Oscuro';
+    toggle.onclick = () => {
+      theme = theme==='dark'?'light':'dark';
+      localStorage.setItem('theme', theme);
+      container.setAttribute('data-theme', theme==='dark'?'dark':'');
+      cargarUsuarios(buscador.value);
+    };
+  }
+
+  function initAdmin(){
+    initTheme();
+    cargarUsuarios();
+    buscador.oninput = () => cargarUsuarios(buscador.value);
+    form.onsubmit = e => {
+      e.preventDefault();
+      const u = Object.fromEntries(new FormData(form));
+      const arr = JSON.parse(localStorage.getItem('usuarios')||'[]');
+      if(editIndex !== null) arr[editIndex] = u;
+      else arr.push(u);
+      localStorage.setItem('usuarios', JSON.stringify(arr));
+      form.reset(); cancelBtn.style.display='none'; editIndex=null;
+      cargarUsuarios(buscador.value);
+    };
+  }
+
+  function cargarUsuarios(filter=''){
+    const arr = JSON.parse(localStorage.getItem('usuarios')||'[]');
+    tbody.innerHTML='';
+    arr.forEach((u,i)=>{
+      const txt = `${u.nombres} ${u.apellidos} ${u.dni} ${u.producto}`.toLowerCase();
+      if(!txt.includes(filter.toLowerCase())) return;
+      const tr = document.createElement('tr');
+      const tdIcon = document.createElement('td');
+      const prod = u.producto.toLowerCase();
+      const icon = prod.includes('televisor')?'📺':prod.includes('refrigeradora')||prod.includes('refrig')?'🧊':
+                   prod.includes('lavadora')?'🧼':prod.includes('licuadora')?'🍹':
+                   prod.includes('microondas')?'🍲':'🛒';
+      tdIcon.textContent = icon;
+      tr.appendChild(tdIcon);
+      ['dni','nombres','apellidos','edad','telefono','email','producto','numProducto','precioFijo','precioCuotas']
+        .forEach(k=>{ const td=document.createElement('td'); td.textContent=u[k]; tr.appendChild(td); });
+      const tdA = document.createElement('td'); tdA.className='actions';
+      tdA.innerHTML = `<button onclick="editar(${i})">✏️</button><button onclick="eliminar(${i})">❌</button><button onclick="boleta(${i})">📄</button>`;
+      tr.appendChild(tdA);
+      tbody.appendChild(tr);
+    });
+    actualizarGraficas();
+  }
+
+  function editar(i){const u=JSON.parse(localStorage.getItem('usuarios')||'[]')[i]; Object.keys(u).forEach(k=> form[k].value=u[k]||''); editIndex=i; cancelBtn.style.display='inline';}
+  cancelBtn.onclick = ()=>{ editIndex=null; form.reset(); cancelBtn.style.display='none'; };
+
+  function eliminar(i){const arr=JSON.parse(localStorage.getItem('usuarios')||'[]'); if(confirm(`Eliminar usuario con DNI ${arr[i].dni}?`)){arr.splice(i,1); localStorage.setItem('usuarios',JSON.stringify(arr)); cargarUsuarios(buscador.value);} }
+
+  function exportarExcel(){const arr=JSON.parse(localStorage.getItem('usuarios')||'[]'), ws=XLSX.utils.json_to_sheet(arr), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws,'Usuarios'); XLSX.writeFile(wb,'usuarios.xlsx');}
+  async function exportarPDF(){const arr=JSON.parse(localStorage.getItem('usuarios')||'[]'),{jsPDF}=window.jspdf,doc=new jsPDF(); doc.text("Usuarios",14,10); const hdr=["DNI","Nombres","Apellidos","Edad","Teléfono","Email","Producto","N° producto","Precio fijo","Cuotas"]; const rows=arr.map(u=> hdr.map(h=> u[h.toLowerCase().replace(/[^\w]/g,'')]||"" )); doc.autoTable({head:[hdr], body:rows, startY:20, styles:{fontSize:8}}); doc.save('usuarios.pdf');}
+
+  async function boleta(i){const u=JSON.parse(localStorage.getItem('usuarios')||'[]')[i],{jsPDF}=window.jspdf,doc=new jsPDF(),fecha=new Date().toLocaleDateString(); doc.setFontSize(16); doc.text("Boleta de Compra",14,14); doc.setFontSize(11); doc.text(`Fecha: ${fecha}`,14,22); [["DNI",u.dni],["Nombre",`${u.nombres} ${u.apellidos}`],["Producto",u.producto],["N° producto",u.numProducto],["Precio fijo",u.precioFijo],["Precio cuotas",u.precioCuotas],["Teléfono",u.telefono],["Dirección",u.direccion]].forEach((it,idx)=>doc.text(`${it[0]}: ${it[1]}`,14,30+idx*6)); doc.save(`boleta_${u.dni}_${u.producto}.pdf`); }
+
+  function actualizarGraficas(){const arr=JSON.parse(localStorage.getItem('usuarios')||'[]'), cnt={}, avg=[]; arr.forEach(u=>cnt[u.producto]=(cnt[u.producto]||0)+1); const labels=Object.keys(cnt), counts=Object.values(cnt); labels.forEach(prod=>{ const vals=arr.filter(u=>u.producto===prod).map(u=>parseFloat(u.precioCuotas)||0); avg.push(vals.length? (vals.reduce((a,b)=>a+b, 0)/vals.length).toFixed(2):0); }); const ctx1=document.getElementById('chartProductos').getContext('2d'); if(chartProd) chartProd.destroy(); chartProd=new Chart(ctx1,{type:'bar',data:{labels,datasets:[{label:'Ventas por producto',data:counts,backgroundColor:'#0078d7',barThickness:20,maxBarThickness:20}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}}); const ctx2=document.getElementById('chartCuotas').getContext('2d'); if(chartCuotas) chartCuotas.destroy(); chartCuotas=new Chart(ctx2,{type:'line',data:{labels,datasets:[{label:'Promedio de cuotas',data:avg,borderColor:'#0078d7',fill:false,borderWidth:2}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});}
+
+  function exportChartImage(chart,file){const url=chart.toBase64Image(), a=document.createElement('a'); a.href=url; a.download=file; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+
+  async function exportChartPDF(chart,file){const img=chart.toBase64Image(),{jsPDF}=window.jspdf,doc=new jsPDF(); doc.addImage(img,'PNG',15,40,180,chart.canvas.height*(180/chart.canvas.width)); doc.save(file); }
+
+  function generarQR(){ const url = window.location.href; QRCode.toCanvas(document.getElementById('qrCode'), url, {width:200, color:{dark:"#000", light:"#FFF"}}, err=>err?console.error(err):console.log('QR generado')); }
+
+  if('serviceWorker' in navigator){navigator.serviceWorker.register('serviceWorker.js').then(()=>console.log('SW registrado'));}
+
+  window.onload = ()=>{};
+</script>
+</body>
+</html>
